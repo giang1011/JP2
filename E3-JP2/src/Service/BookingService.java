@@ -11,7 +11,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
 public class BookingService {
     private List<Room> rooms;
     private List<Customer> customers;
@@ -37,8 +36,11 @@ public class BookingService {
         Customer customer = customers.stream()
                 .filter(c -> c.getId().equals(customerId))
                 .findFirst()
-                .orElse(new Customer(customerId, customerName, customerPhone));
-        customers.add(customer);
+                .orElseGet(() -> {
+                    Customer newCustomer = new Customer(customerId, customerName, customerPhone);
+                    customers.add(newCustomer);
+                    return newCustomer;
+                });
 
         System.out.println("Available Rooms:");
         rooms.forEach(room -> System.out.println(room.getId() + " - " + room.getRoomType() + " - $" + room.getPricePerHour() + "/hour"));
@@ -46,21 +48,24 @@ public class BookingService {
         System.out.println("Enter Room ID:");
         String roomId = scanner.nextLine();
 
-        boolean isRoomAvailable = bookings.stream()
-                .noneMatch(booking -> booking.getRoomId().equals(roomId));
-
-        if (!isRoomAvailable) {
-            System.out.println("Room is not available for booking at the chosen time. Please try a different room.");
-            return;
-        }
-
         System.out.println("Enter Check-in Date and Time (yyyy-MM-dd HH:mm):");
         LocalDateTime checkIn = LocalDateTime.parse(scanner.nextLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         System.out.println("Enter Check-out Date and Time (yyyy-MM-dd HH:mm):");
         LocalDateTime checkOut = LocalDateTime.parse(scanner.nextLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
-        // Hiển thị lại thông tin đặt phòng để xác nhận
+
+        boolean isRoomAvailable = bookings.stream()
+                .filter(booking -> booking.getRoomId().equals(roomId))
+                .noneMatch(booking ->
+                        (checkIn.isBefore(booking.getCheckOut()) && checkOut.isAfter(booking.getCheckIn())));
+
+        if (!isRoomAvailable) {
+            System.out.println("Room is not available for the selected time period. Please try a different room or time.");
+            return;
+        }
+
+
         System.out.println("\nPlease confirm the booking details:");
         System.out.println("Customer Name: " + customer.getName());
         System.out.println("Customer Phone: " + customer.getPhone());
@@ -80,12 +85,6 @@ public class BookingService {
         }
     }
 
-
-    public void createBooking(int bookingId, String customerId, String roomId, LocalDateTime checkIn, LocalDateTime checkOut) {
-        bookings.add(new Booking(bookingId, roomId, customerId, checkIn, checkOut));
-    }
-
-
     public List<Booking> findBookingsByCustomer(String cusName, String cusPhone) {
         return bookings.stream()
                 .filter(booking -> {
@@ -96,7 +95,6 @@ public class BookingService {
                 })
                 .collect(Collectors.toList());
     }
-
 
     public Map<RoomType, Double> calculateRevenueByRoomType() {
         Map<String, Room> roomMap = rooms.stream().collect(Collectors.toMap(Room::getId, room -> room));
@@ -111,12 +109,20 @@ public class BookingService {
                 ));
     }
 
-
     public Optional<RoomType> getHighestRevenueRoomTypeIn2023() {
-        Map<RoomType, Double> revenueByRoomType = calculateRevenueByRoomType();
-        return revenueByRoomType.entrySet().stream()
+        Map<String, Room> roomMap = rooms.stream().collect(Collectors.toMap(Room::getId, room -> room));
+        return bookings.stream()
+                .filter(booking -> booking.getCheckIn().getYear() == 2023)
+                .collect(Collectors.groupingBy(
+                        booking -> roomMap.get(booking.getRoomId()).getRoomType(),
+                        Collectors.summingDouble(booking -> {
+                            Room room = roomMap.get(booking.getRoomId());
+                            long hours = Duration.between(booking.getCheckIn(), booking.getCheckOut()).toHours();
+                            return room.getPricePerHour() * hours;
+                        })
+                ))
+                .entrySet().stream()
                 .max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey);
     }
 }
-
