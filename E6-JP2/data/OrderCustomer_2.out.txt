@@ -1,0 +1,4 @@
+Order Details for Customer ID: 2
+OrderID | ProductID | Quantity | Price | Total
+2 | 125 | 10 | 105.0 | 1050.0
+Total Amount: 1050.0
