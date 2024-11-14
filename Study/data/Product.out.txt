@@ -1,0 +1,3 @@
+IdSanpham;%Click;%AddToCart;%Checkout
+1;91,80;80,00;100,00
+2;8,20;20,00;0,00

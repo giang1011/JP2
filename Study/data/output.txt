@@ -1,0 +1,1 @@
+IdSanpham;%Click;%AddToCart;%Checkout
